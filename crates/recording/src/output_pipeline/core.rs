@@ -128,7 +128,7 @@ impl TaskPool {
                     let res = future.await;
                     match &res {
                         Ok(_) => info!("Task finished successfully"),
-                        Err(err) => error!("Task failed: {}", err),
+                        Err(err) => error!("Task failed: {:#}", err),
                     }
                     res
                 }
@@ -138,19 +138,26 @@ impl TaskPool {
         ));
     }
 
-    pub fn spawn_thread(&mut self, name: &'static str, cb: impl FnOnce() + Send + 'static) {
+    pub fn spawn_thread(
+        &mut self,
+        name: &'static str,
+        cb: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
+    ) {
         let span = error_span!("", task = name);
         let (done_tx, done_rx) = oneshot::channel();
         std::thread::spawn(move || {
             let _guard = span.enter();
             trace!("Task started");
-            cb();
-            let _ = done_tx.send(());
+            let _ = done_tx.send(cb());
             info!("Task finished");
         });
         self.0.push((
             name,
-            tokio::spawn(done_rx.map_err(|_| anyhow!("Cancelled"))),
+            tokio::spawn(
+                done_rx
+                    .map_err(|_| anyhow!("Cancelled"))
+                    .map(|v| v.and_then(|v| v)),
+            ),
         ));
     }
 }
@@ -349,7 +356,7 @@ async fn finish_build(
             Ok(())
         }
         .then(async move |res| {
-            let muxer_res = muxer.lock().await.finish();
+            let muxer_res = muxer.lock().await.finish(timestamps.instant().elapsed());
 
             let _ = done_tx.send(match (res, muxer_res) {
                 (Err(e), _) | (_, Err(e)) => Err(e),
@@ -405,12 +412,25 @@ fn spawn_video_encoder<TMutex: VideoMuxer<VideoFrame = TVideo::Frame>, TVideo: V
     muxer: Arc<Mutex<TMutex>>,
     timestamps: Timestamps,
 ) {
+    setup_ctx.tasks().spawn("capture-video", {
+        let stop_token = stop_token.clone();
+        async move {
+            video_source.start().await?;
+
+            stop_token.cancelled().await;
+
+            if let Err(e) = video_source.stop().await {
+                error!("Video source stop failed: {e:#}");
+            };
+
+            Ok(())
+        }
+    });
+
     setup_ctx.tasks().spawn("mux-video", async move {
         use futures::StreamExt;
 
         let mut first_tx = Some(first_tx);
-
-        video_source.start().await?;
 
         stop_token
             .run_until_cancelled(async {
@@ -431,8 +451,6 @@ fn spawn_video_encoder<TMutex: VideoMuxer<VideoFrame = TVideo::Frame>, TVideo: V
                 Ok::<(), anyhow::Error>(())
             })
             .await;
-
-        video_source.stop().await.context("video_source_stop")?;
 
         muxer.lock().await.stop();
 
@@ -470,7 +488,10 @@ async fn configure_audio<TMutex: AudioMuxer>(
 
     setup_ctx.tasks().spawn_thread("audio-mixer", {
         let stop_flag = stop_flag.clone();
-        move || audio_mixer.run(audio_tx, ready_tx, stop_flag)
+        move || {
+            audio_mixer.run(audio_tx, ready_tx, stop_flag);
+            Ok(())
+        }
     });
     let _ = ready_rx
         .await
@@ -766,7 +787,7 @@ pub trait Muxer: Send + 'static {
 
     fn stop(&mut self) {}
 
-    fn finish(&mut self) -> anyhow::Result<()>;
+    fn finish(&mut self, timestamp: Duration) -> anyhow::Result<()>;
 }
 
 pub trait AudioMuxer: Muxer {

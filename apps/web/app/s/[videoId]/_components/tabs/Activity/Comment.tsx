@@ -8,6 +8,8 @@ import clsx from "clsx";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import type React from "react";
+import { useCurrentUser } from "@/app/Layout/AuthContext";
+import { SignedImageUrl } from "@/components/SignedImageUrl";
 import { Tooltip } from "@/components/Tooltip";
 import type { CommentType } from "../../../Share";
 import CommentInput from "./CommentInput";
@@ -22,9 +24,8 @@ const CommentComponent: React.FC<{
 	onCancelReply: () => void;
 	onDelete: (
 		commentId: Comment.CommentId,
-		parentId?: Comment.CommentId,
+		parentId: Comment.CommentId | null,
 	) => void;
-	user: typeof userSelectProps | null;
 	level?: number;
 	onSeek?: (time: number) => void;
 }> = ({
@@ -35,10 +36,10 @@ const CommentComponent: React.FC<{
 	handleReply,
 	onCancelReply,
 	onDelete,
-	user,
 	level = 0,
 	onSeek,
 }) => {
+	const user = useCurrentUser();
 	const isReplying = replyingToId === comment.id;
 	const isOwnComment = user?.id === comment.authorId;
 	const commentParams = useSearchParams().get("comment");
@@ -55,10 +56,7 @@ const CommentComponent: React.FC<{
 			: [];
 
 	const handleDelete = () => {
-		if (
-			comment.parentCommentId &&
-			window.confirm("Are you sure you want to delete this comment?")
-		) {
+		if (window.confirm("Are you sure you want to delete this comment?")) {
 			onDelete(comment.id, comment.parentCommentId);
 		}
 	};
@@ -77,11 +75,14 @@ const CommentComponent: React.FC<{
 			)}
 		>
 			<div className="flex items-start space-x-2.5">
-				<Avatar
-					className="size-6"
-					letterClass="text-sm"
-					name={comment.authorName}
-				/>
+				{comment.authorName && (
+					<SignedImageUrl
+						image={comment.authorImage}
+						name={comment.authorName}
+						className="size-6"
+						letterClass="text-sm"
+					/>
+				)}
 				<motion.div
 					viewport={{
 						once: true,
@@ -165,7 +166,6 @@ const CommentComponent: React.FC<{
 						onCancel={onCancelReply}
 						placeholder="Write a reply..."
 						showCancelButton={true}
-						user={user}
 						autoFocus={true}
 					/>
 				</div>
@@ -183,7 +183,6 @@ const CommentComponent: React.FC<{
 							handleReply={handleReply}
 							onCancelReply={onCancelReply}
 							onDelete={onDelete}
-							user={user}
 							level={1}
 							onSeek={onSeek}
 						/>

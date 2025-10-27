@@ -8,7 +8,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@cap/ui";
-import type { Video } from "@cap/web-domain";
+import type { ImageUpload, Video } from "@cap/web-domain";
 import { HttpClient } from "@effect/platform";
 import {
 	faCheck,
@@ -18,6 +18,7 @@ import {
 	faGear,
 	faLink,
 	faLock,
+	faShare,
 	faTrash,
 	faUnlock,
 	faVideo,
@@ -40,8 +41,9 @@ import {
 	type ImageLoadingStatus,
 	VideoThumbnail,
 } from "@/components/VideoThumbnail";
-import { useEffectMutation } from "@/lib/EffectRuntime";
+import { useEffectMutation, useRpcClient } from "@/lib/EffectRuntime";
 import { withRpc } from "@/lib/Rpcs";
+import { usePublicEnv } from "@/utils/public-env";
 import { PasswordDialog } from "../PasswordDialog";
 import { SettingsDialog } from "../SettingsDialog";
 import { SharingDialog } from "../SharingDialog";
@@ -61,12 +63,12 @@ export interface CapCardProps extends PropsWithChildren {
 		sharedOrganizations?: {
 			id: string;
 			name: string;
-			iconUrl?: string | null;
+			iconUrl?: ImageUpload.ImageUrl | null;
 		}[];
 		sharedSpaces?: {
 			id: string;
 			name: string;
-			iconUrl?: string | null;
+			iconUrl?: ImageUpload.ImageUrl | null;
 			organizationId: string;
 		}[];
 		ownerName: string | null;
@@ -90,8 +92,6 @@ export interface CapCardProps extends PropsWithChildren {
 	sharedCapCard?: boolean;
 	isSelected?: boolean;
 	onSelectToggle?: () => void;
-	customDomain?: string | null;
-	domainVerified?: boolean;
 	hideSharedStatus?: boolean;
 	anyCapSelected?: boolean;
 	isDeleting?: boolean;
@@ -108,32 +108,37 @@ export const CapCard = ({
 	isLoadingAnalytics,
 	sharedCapCard = false,
 	hideSharedStatus = false,
-	customDomain,
-	domainVerified,
 	isSelected = false,
 	onSelectToggle,
 	anyCapSelected = false,
 	isDeleting = false,
 }: CapCardProps) => {
+	const { activeOrganization } = useDashboardContext();
+	const customDomain = activeOrganization?.organization.customDomain;
+	const domainVerified = activeOrganization?.organization.domainVerified;
+
 	const [isSharingDialogOpen, setIsSharingDialogOpen] = useState(false);
 	const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 	const [passwordProtected, setPasswordProtected] = useState(
 		cap.hasPassword || false,
 	);
+	const { webUrl } = usePublicEnv();
+
 	const [copyPressed, setCopyPressed] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
 	const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
-	const { isSubscribed, setUpgradeModalOpen } = useDashboardContext();
+	const { user, setUpgradeModalOpen } = useDashboardContext();
 
 	const [confirmOpen, setConfirmOpen] = useState(false);
 
 	const router = useRouter();
+	const rpc = useRpcClient();
 
 	const downloadMutation = useEffectMutation({
 		mutationFn: () =>
 			Effect.gen(function* () {
-				const result = yield* withRpc((r) => r.VideoGetDownloadInfo(cap.id));
+				const result = yield* rpc.VideoGetDownloadInfo(cap.id);
 				const httpClient = yield* HttpClient.HttpClient;
 				if (Option.isSome(result)) {
 					const fetchResponse = yield* httpClient.get(result.value.downloadUrl);
@@ -171,7 +176,7 @@ export const CapCard = ({
 	});
 
 	const duplicateMutation = useEffectMutation({
-		mutationFn: () => withRpc((r) => r.VideoDuplicate(cap.id)),
+		mutationFn: () => rpc.VideoDuplicate(cap.id),
 		onSuccess: () => {
 			router.refresh();
 		},
@@ -192,7 +197,6 @@ export const CapCard = ({
 		cap.id,
 		cap.hasActiveUpload || false,
 	);
-	const enableBetaUploadProgress = useFeatureFlag("enableUploadProgress");
 	const [imageStatus, setImageStatus] = useState<ImageLoadingStatus>("loading");
 
 	// Helper function to create a drag preview element
@@ -290,6 +294,18 @@ export const CapCard = ({
 		}
 	};
 
+	const copyLinkHandler = () => {
+		handleCopy(
+			NODE_ENV === "development"
+				? `${webUrl}/s/${cap.id}`
+				: buildEnv.NEXT_PUBLIC_IS_CAP && customDomain && domainVerified
+					? `https://${customDomain}/s/${cap.id}`
+					: buildEnv.NEXT_PUBLIC_IS_CAP && !customDomain && !domainVerified
+						? `https://cap.link/${cap.id}`
+						: `${webUrl}/s/${cap.id}`,
+		);
+	};
+
 	return (
 		<>
 			<SharingDialog
@@ -345,71 +361,61 @@ export const CapCard = ({
 						"top-2 right-2 flex-col gap-2 z-[51]",
 					)}
 				>
-					{isOwner ? (
+					{isOwner && (
 						<CapCardButton
-							tooltipContent="Settings"
+							tooltipContent="Share"
 							onClick={(e) => {
 								e.stopPropagation();
-								setIsSettingsDialogOpen(true);
+								setIsSharingDialogOpen(true);
 							}}
 							className="delay-0"
-							icon={() => {
-								return <FontAwesomeIcon className="size-4" icon={faGear} />;
-							}}
-						/>
-					) : (
-						<CapCardButton
-							tooltipContent="Download Cap"
-							onClick={(e) => {
-								e.stopPropagation();
-								handleDownload();
-							}}
-							className="delay-0"
-							icon={() => (
-								<FontAwesomeIcon className="size-4" icon={faDownload} />
-							)}
+							icon={<FontAwesomeIcon icon={faShare} />}
 						/>
 					)}
+
 					<CapCardButton
-						tooltipContent="Copy link"
+						tooltipContent="Download Cap"
 						onClick={(e) => {
 							e.stopPropagation();
-							handleCopy(
-								buildEnv.NEXT_PUBLIC_IS_CAP &&
-									NODE_ENV === "production" &&
-									customDomain &&
-									domainVerified
-									? `https://${customDomain}/s/${cap.id}`
-									: buildEnv.NEXT_PUBLIC_IS_CAP && NODE_ENV === "production"
-										? `https://cap.link/${cap.id}`
-										: `${location.origin}/s/${cap.id}`,
-							);
+							handleDownload();
 						}}
 						className="delay-0"
-						icon={() => {
-							return !copyPressed ? (
-								<FontAwesomeIcon
-									className="text-gray-12 size-4"
-									icon={faLink}
-								/>
-							) : (
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="24"
-									height="24"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									className="text-gray-12 size-5 svgpathanimation"
-								>
-									<path d="M20 6 9 17l-5-5" />
-								</svg>
-							);
-						}}
+						icon={<FontAwesomeIcon icon={faDownload} />}
 					/>
+
+					{!isOwner && (
+						<CapCardButton
+							tooltipContent="Copy link"
+							onClick={(e) => {
+								e.stopPropagation();
+								copyLinkHandler();
+							}}
+							className="delay-0"
+							icon={
+								!copyPressed ? (
+									<FontAwesomeIcon
+										className="text-gray-12 size-4"
+										icon={faLink}
+									/>
+								) : (
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										className="text-gray-12 size-5 svgpathanimation"
+									>
+										<path d="M20 6 9 17l-5-5" />
+									</svg>
+								)
+							}
+						/>
+					)}
 
 					{isOwner && (
 						<DropdownMenu modal={false} onOpenChange={setIsDropdownOpen}>
@@ -418,9 +424,7 @@ export const CapCard = ({
 									<CapCardButton
 										tooltipContent="More options"
 										className="delay-75"
-										icon={() => (
-											<FontAwesomeIcon className="size-4" icon={faEllipsis} />
-										)}
+										icon={<FontAwesomeIcon icon={faEllipsis} />}
 									/>
 								</div>
 							</DropdownMenuTrigger>
@@ -432,12 +436,23 @@ export const CapCard = ({
 								<DropdownMenuItem
 									onClick={(e) => {
 										e.stopPropagation();
-										handleDownload();
+										setIsSettingsDialogOpen(true);
 									}}
 									className="flex gap-2 items-center rounded-lg"
 								>
-									<FontAwesomeIcon className="size-3" icon={faDownload} />
-									<p className="text-sm text-gray-12">Download</p>
+									<FontAwesomeIcon className="size-3" icon={faGear} />
+									<p className="text-sm text-gray-12">Settings</p>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={(e) => {
+										e.stopPropagation();
+										copyLinkHandler();
+										toast.success("Link copied to clipboard");
+									}}
+									className="flex gap-2 items-center rounded-lg"
+								>
+									<FontAwesomeIcon className="size-3" icon={faLink} />
+									<p className="text-sm text-gray-12">Copy link</p>
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onClick={() => {
@@ -447,10 +462,7 @@ export const CapCard = ({
 											error: "Failed to duplicate cap",
 										});
 									}}
-									disabled={
-										duplicateMutation.isPending ||
-										(enableBetaUploadProgress && cap.hasActiveUpload)
-									}
+									disabled={duplicateMutation.isPending || cap.hasActiveUpload}
 									className="flex gap-2 items-center rounded-lg"
 								>
 									<FontAwesomeIcon className="size-3" icon={faCopy} />
@@ -458,7 +470,7 @@ export const CapCard = ({
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onClick={() => {
-										if (!isSubscribed) setUpgradeModalOpen(true);
+										if (!user.isPro) setUpgradeModalOpen(true);
 										else setIsPasswordDialogOpen(true);
 									}}
 									className="flex gap-2 items-center rounded-lg"
@@ -538,7 +550,9 @@ export const CapCard = ({
 						}}
 						href={`/s/${cap.id}`}
 					>
-						{imageStatus !== "success" && uploadProgress ? (
+						{imageStatus !== "success" &&
+						uploadProgress &&
+						uploadProgress?.status !== "fetching" ? (
 							<div className="relative inset-0 z-20 w-full h-full">
 								<div className="overflow-hidden relative mx-auto w-full h-full bg-black rounded-t-xl border-b border-gray-3 aspect-video z-5">
 									<div className="flex absolute inset-0 justify-center items-center rounded-t-xl">

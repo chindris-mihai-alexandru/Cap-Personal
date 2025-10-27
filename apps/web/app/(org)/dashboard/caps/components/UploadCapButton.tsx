@@ -17,7 +17,7 @@ import {
 	useUploadingContext,
 } from "@/app/(org)/dashboard/caps/UploadingContext";
 import { UpgradeModal } from "@/components/UpgradeModal";
-import { imageUrlQuery } from "@/components/VideoThumbnail";
+import { ThumbnailRequest } from "@/lib/Requests/ThumbnailRequest";
 
 export const UploadCapButton = ({
 	size = "md",
@@ -38,9 +38,7 @@ export const UploadCapButton = ({
 	const handleClick = () => {
 		if (!user) return;
 
-		const isCapPro = userIsPro(user);
-
-		if (!isCapPro) {
+		if (!user.isPro) {
 			setUpgradeModalOpen(true);
 			return;
 		}
@@ -495,7 +493,9 @@ async function legacyUploadCap(
 				xhr.onload = () => {
 					if (xhr.status >= 200 && xhr.status < 300) {
 						resolve();
-						queryClient.refetchQueries(imageUrlQuery(uploadId));
+						queryClient.refetchQueries({
+							queryKey: ThumbnailRequest.queryKey(uploadId),
+						});
 					} else {
 						reject(
 							new Error(`Screenshot upload failed with status ${xhr.status}`),
