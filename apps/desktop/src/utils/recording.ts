@@ -34,8 +34,9 @@ export function handleRecordingResult(
 					emit("start-sign-in");
 				else if (result === buttons.no && setOptions)
 					setOptions({ mode: "studio" });
-			} else if (result === "UpgradeRequired") commands.showWindow("Upgrade");
-			else
+			} else if (result === "UpgradeRequired") {
+				console.log("Upgrade check bypassed - unlimited recording enabled");
+			} else
 				await dialog.message(`Error: ${result}`, {
 					title: "Error starting recording",
 				});

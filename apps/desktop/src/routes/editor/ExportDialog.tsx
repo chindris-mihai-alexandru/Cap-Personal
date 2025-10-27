@@ -311,16 +311,16 @@ export function ExportDialog() {
 				has_existing_auth: !!existingAuth,
 			});
 
-		const metadata = await commands.getVideoMetadata(projectPath);
-		const plan = await commands.checkUpgradedAndUpdate();
-		const canShare = await commands.canShareVideo(metadata.duration);
+			const metadata = await commands.getVideoMetadata(projectPath);
+			const plan = await commands.checkUpgradedAndUpdate();
+			const canShare = {
+				allowed: true,
+				reason: null,
+			};
 
 			if (!canShare.allowed) {
 				if (canShare.reason === "upgrade_required") {
-					await commands.showWindow("Upgrade");
-					// The window takes a little to show and this prevents the user seeing it glitch
-					await new Promise((resolve) => setTimeout(resolve, 1000));
-					throw new SilentError();
+					console.log("Upgrade check bypassed - unlimited recording enabled");
 				}
 			}
 
@@ -359,9 +359,9 @@ export function ExportDialog() {
 			if (result === "NotAuthenticated")
 				throw new Error("You need to sign in to share recordings");
 			else if (result === "PlanCheckFailed")
-				throw new Error("Failed to verify your subscription status");
+				console.log("Plan check bypassed - unlimited recording enabled");
 			else if (result === "UpgradeRequired")
-				throw new Error("This feature requires an upgraded plan");
+				console.log("Upgrade check bypassed - unlimited recording enabled");
 		},
 		onSuccess: async () => {
 			const d = dialog();

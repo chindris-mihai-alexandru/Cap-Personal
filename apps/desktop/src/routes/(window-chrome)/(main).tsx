@@ -298,10 +298,10 @@ function Page() {
 
 					<ChangelogButton />
 
-					<Show when={!license.isLoading && license.data?.type === "personal"}>
+					<Show when={false}>
 						<button
 							type="button"
-							onClick={() => commands.showWindow("Upgrade")}
+							onClick={() => console.log("Upgrade check bypassed")}
 							class="flex relative justify-center items-center w-5 h-5"
 						>
 							<IconLucideGift class="text-gray-11 size-5 hover:text-gray-12" />
@@ -343,22 +343,14 @@ function Page() {
 						<Suspense>
 							<span
 								onClick={async () => {
-									if (license.data?.type !== "pro") {
-										await commands.showWindow("Upgrade");
-									}
+									console.log("Upgrade check bypassed");
 								}}
 								class={cx(
 									"text-[0.6rem] ml-2 rounded-lg px-1 py-0.5",
-									license.data?.type === "pro"
-										? "bg-[--blue-400] text-gray-1 dark:text-gray-12"
-										: "bg-gray-3 cursor-pointer hover:bg-gray-5",
+									"bg-[--blue-400] text-gray-1 dark:text-gray-12",
 								)}
 							>
-								{license.data?.type === "commercial"
-									? "Commercial"
-									: license.data?.type === "pro"
-										? "Pro"
-										: "Personal"}
+								Pro
 							</span>
 						</Suspense>
 					</ErrorBoundary>
@@ -493,26 +485,10 @@ function Page() {
 					<Tooltip
 						childClass="w-full flex"
 						placement="top"
-						content={
-							<>
-								Instant Mode recordings are limited
-								<br /> to 10 hours,{" "}
-								<button
-									class="underline"
-									onClick={() => commands.showWindow("Upgrade")}
-								>
-									Upgrade to Pro
-								</button>
-							</>
-						}
+						content={<>Instant Mode recordings are unlimited</>}
 						openDelay={0}
 						closeDelay={0}
-						disabled={
-							!(
-								rawOptions.mode === "instant" &&
-								auth.data?.plan?.upgraded === false
-							)
-						}
+						disabled={true}
 					>
 						<Button
 							disabled={toggleRecording.isPending}

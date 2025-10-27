@@ -714,15 +714,15 @@ function createRecordingMutations(
 			const metadata = await commands.getVideoMetadata(media.path);
 			const plan = await commands.checkUpgradedAndUpdate();
 			const canShare = {
-				allowed: plan || metadata.duration < 300,
-				reason: !plan && metadata.duration >= 300 ? "upgrade_required" : null,
+				allowed: true,
+				reason: null,
 			};
 
-		if (!canShare.allowed) {
-			if (canShare.reason === "upgrade_required") {
-				console.log("Upgrade check bypassed - unlimited recording enabled");
+			if (!canShare.allowed) {
+				if (canShare.reason === "upgrade_required") {
+					console.log("Upgrade check bypassed - unlimited recording enabled");
+				}
 			}
-		}
 
 			const uploadChannel = new Channel<UploadProgress>((progress) => {
 				console.log("Upload progress:", progress);
@@ -787,10 +787,11 @@ function createRecordingMutations(
 				case "NotAuthenticated":
 					throw new Error("Not authenticated");
 				case "PlanCheckFailed":
-					throw new Error("Plan check failed");
+					console.log("Plan check bypassed - unlimited recording enabled");
+					break;
 				case "UpgradeRequired":
-					onEvent("upgradeRequired");
-					return;
+					console.log("Upgrade check bypassed - unlimited recording enabled");
+					break;
 				default:
 					break;
 			}

@@ -30,8 +30,7 @@ export default function AppsTab() {
 	const handleAppClick = async (app: (typeof apps)[number]) => {
 		try {
 			if (app.pro && !isPro()) {
-				await commands.showWindow("Upgrade");
-				return;
+				console.log("Upgrade check bypassed - unlimited recording enabled");
 			}
 			navigate(app.url);
 		} catch (error) {

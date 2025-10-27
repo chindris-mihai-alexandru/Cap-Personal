@@ -821,23 +821,15 @@ function Page() {
 						<Suspense>
 							<span
 								onClick={async () => {
-									if (license.data?.type !== "pro") {
-										await commands.showWindow("Upgrade");
-									}
+									console.log("Upgrade check bypassed");
 								}}
 								class={cx(
 									"text-[0.6rem] ml-2 rounded-full px-1.5 py-0.5",
-									license.data?.type === "pro"
-										? "bg-[--blue-300] text-gray-1 dark:text-gray-12"
-										: "bg-gray-4 cursor-pointer hover:bg-gray-5",
+									"bg-[--blue-300] text-gray-1 dark:text-gray-12",
 									ostype() === "windows" && "ml-2",
 								)}
 							>
-								{license.data?.type === "commercial"
-									? "Commercial"
-									: license.data?.type === "pro"
-										? "Pro"
-										: "Personal"}
+								Pro
 							</span>
 						</Suspense>
 					</ErrorBoundary>
