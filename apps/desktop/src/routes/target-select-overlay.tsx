@@ -873,16 +873,16 @@ function ShowCapFreeWarning(props: { isInstantMode: boolean }) {
 	const auth = authStore.createQuery();
 
 	return (
-		<Suspense>
-			<Show when={props.isInstantMode && auth.data?.plan?.upgraded === false}>
-				<p class="text-sm text-center text-white max-w-64">
-					Instant Mode recordings are limited to 5 mins,{" "}
-					<button
-						class="underline"
-						onClick={() => commands.showWindow("Upgrade")}
-					>
-						Upgrade to Pro
-					</button>
+	<Suspense>
+		<Show when={false}>
+			<p class="text-sm text-center text-white max-w-64">
+				Instant Mode recordings are limited to 5 mins,{" "}
+				<button
+					class="underline"
+					onClick={() => commands.showWindow("Upgrade")}
+				>
+					Upgrade to Pro
+				</button>
 				</p>
 			</Show>
 		</Suspense>

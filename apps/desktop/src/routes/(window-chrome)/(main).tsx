@@ -493,7 +493,7 @@ function Page() {
 						content={
 							<>
 								Instant Mode recordings are limited
-								<br /> to 5 mins,{" "}
+								<br /> to 10 hours,{" "}
 								<button
 									class="underline"
 									onClick={() => commands.showWindow("Upgrade")}

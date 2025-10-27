@@ -218,8 +218,9 @@ async function signMacOSFrameworkLibs(frameworkDir) {
 	const keychain = env.APPLE_KEYCHAIN ? `--keychain ${env.APPLE_KEYCHAIN}` : "";
 
 	// Sign dylibs (Required for them to work on macOS 13+)
+	const librariesDir = path.join(frameworkDir, "Libraries");
 	await fs
-		.readdir(path.join(frameworkDir, "Libraries"), {
+		.readdir(librariesDir, {
 			recursive: true,
 			withFileTypes: true,
 		})
@@ -230,7 +231,7 @@ async function signMacOSFrameworkLibs(frameworkDir) {
 					.map((entry) =>
 						exec(
 							`codesign ${keychain} -s "${signId}" -f "${path.join(
-								entry.path,
+								entry.path || entry.parentPath || librariesDir,
 								entry.name,
 							)}"`,
 						),

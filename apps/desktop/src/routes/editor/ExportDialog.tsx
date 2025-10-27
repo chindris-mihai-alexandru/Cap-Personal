@@ -311,12 +311,9 @@ export function ExportDialog() {
 				has_existing_auth: !!existingAuth,
 			});
 
-			const metadata = await commands.getVideoMetadata(projectPath);
-			const plan = await commands.checkUpgradedAndUpdate();
-			const canShare = {
-				allowed: plan || metadata.duration < 300,
-				reason: !plan && metadata.duration >= 300 ? "upgrade_required" : null,
-			};
+		const metadata = await commands.getVideoMetadata(projectPath);
+		const plan = await commands.checkUpgradedAndUpdate();
+		const canShare = await commands.canShareVideo(metadata.duration);
 
 			if (!canShare.allowed) {
 				if (canShare.reason === "upgrade_required") {

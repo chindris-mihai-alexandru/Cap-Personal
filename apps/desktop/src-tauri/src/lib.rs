@@ -1078,10 +1078,6 @@ async fn upload_exported_video(
     let metadata = build_video_meta(&file_path)
         .map_err(|err| format!("Error getting output video meta: {err}"))?;
 
-    if !auth.is_upgraded() && metadata.duration_in_secs > 300.0 {
-        return Ok(UploadResult::UpgradeRequired);
-    }
-
     channel.send(UploadProgress { progress: 0.0 }).ok();
 
     let s3_config = async {
@@ -2246,6 +2242,30 @@ pub async fn run(recording_logging_handle: LoggingHandle) {
             audio_meter::spawn_event_emitter(app.clone(), mic_samples_rx);
 
             tray::create_tray(&app).unwrap();
+
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{Menu, Submenu, PredefinedMenuItem};
+                
+                let app_menu = Submenu::new(&app, "Cap", true).ok();
+                if let Some(app_menu) = app_menu {
+                    let _ = app_menu.append(&PredefinedMenuItem::about(&app, None, None).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::separator(&app).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::services(&app, None).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::separator(&app).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::hide(&app, None).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::hide_others(&app, None).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::show_all(&app, None).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::separator(&app).unwrap());
+                    let _ = app_menu.append(&PredefinedMenuItem::quit(&app, None).unwrap());
+                    
+                    let menu = Menu::new(&app).ok();
+                    if let Some(menu) = menu {
+                        let _ = menu.append(&app_menu);
+                        let _ = app.set_menu(menu);
+                    }
+                }
+            }
 
             RequestStartRecording::listen_any_spawn(&app, async |event, app| {
                 let settings = RecordingSettingsStore::get(&app)

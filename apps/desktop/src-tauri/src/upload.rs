@@ -241,13 +241,6 @@ pub async fn create_or_get_video(
         }
 
         if let Ok(error) = response.json::<CreateErrorResponse>().await {
-            if error.error == "upgrade_required" {
-                return Err(
-                    "You must upgrade to Cap Pro to upload recordings over 5 minutes in length"
-                        .into(),
-                );
-            }
-
             return Err(format!("server error: {}", error.error));
         }
 
